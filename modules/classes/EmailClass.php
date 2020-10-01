@@ -131,7 +131,7 @@ $messageHtml = $this->dressHtml($message,$subject,$type);
 
 $this->mail->IsSMTP();                           // telling the class to use SMTP
 $this->mail->SMTPAuth   = true;                  // enable SMTP authentication
-$this->mail->Host       = "mail.vinrun.com"; // set the SMTP server
+$this->mail->Host       = "mail.sln.ng"; // set the SMTP server
 $this->mail->Port       = 25;                    // set the SMTP port
 $this->mail->Username   = $this->smtpUser ; // SMTP account username
 $this->mail->Password   = $this->smtpPassword ;        // SMTP account password
@@ -251,13 +251,13 @@ $to = $data['to'];
 
 $this->mail->IsSMTP();                           // telling the class to use SMTP
 $this->mail->SMTPAuth   = true;                  // enable SMTP authentication
-$this->mail->Host       = "mail.vinrun.com"; // set the SMTP server
+$this->mail->Host       = "mail.sln.ng"; // set the SMTP server
 $this->mail->Port       = 25;                    // set the SMTP port
 $this->mail->Username   = $this->smtpUser ; // SMTP account username
 $this->mail->Password   = $this->smtpPassword ;        // SMTP account password
 /**/
-$this->mail->setFrom('payments@vinrun.com', 'VinRun Payments');
-$this->mail->addReplyTo('payments@vinrun.com', 'VinRun Payments');
+$this->mail->setFrom('payments@sln.ng', 'SLN Payments');
+$this->mail->addReplyTo('payments@sln.ng', 'SLN Payments');
 //To address and name
 $this->mail->addAddress($data['to'], $data['toName']);
 
