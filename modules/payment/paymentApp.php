@@ -18,7 +18,7 @@ $pusher = new Pusher\Pusher( $app_key, $app_secret, $app_id,
 $genClass = new GeneralClass;
 $articlesClass = new ArticlesClass;
 $accountClass = new AccountClass;
-$feedClass = new FeedClass;
+$dbConn = new DbConn;
 $payClass = new PaymentClass;
 $dashClass = new DashClass;
 #
@@ -116,8 +116,7 @@ exit();
 }
 
 
-if($action == 'fundDetails'){
-
+if($action == 'getFundDetails'){
 $row3 = $genClass->getUser();
 $thisuser = $row3['email'];
 $now = time();
@@ -128,8 +127,8 @@ $datax = array();
 $datax['email'] = $thisuser;
 $datax['service_cost'] = floatval($data['service_cost']);
 $datax['service_charge'] = 0.00;
-$datax['campaign_id'] = 0;
-if(isset($_SESSION['vinUser'])){
+if(isset($_SESSION['senseiMentor'])
+	|| isset($_SESSION['senseiUser'])){
 $mt = array();
 $mt['custom_fields'] = array();
 $mt['custom_fields'][0]['display_name'] = $row3['firstname'].' '.$row3['surname'];
@@ -139,7 +138,7 @@ $datax['metadata'] = $mt;
 $datax['isLogged'] = true;
 
 $fru = strtoupper(substr($thisuser, 0, 3));
-$ini  = "POW".$genClass->crand(3).time().$fru;
+$ini  = "SEN".$genClass->crand(3).time().$fru;
 $tr = time();
 $trf = substr($tr, 0, 8);
 $datax['ref'] = $datax['reference'] = $ini;
@@ -158,7 +157,7 @@ $datax['metadata'] = $mt;
 $datax['isLogged'] = false;
 
 $fru = 'GUE';   
-$ini  = "vrn".$genClass->crand(3).time().$fru;
+$ini  = "SEN".$genClass->crand(3).time().$fru;
 $tr = time();
 $trf = substr($tr, 0, 8);
 
@@ -180,6 +179,9 @@ $datax['beforeDue'] = floatval($datax['service_cost'] + $datax['service_charge']
 
 $datax['amount']  =  $datax['dueAmount']*100;
 $datax['transactionName']  =  'Wallet Funding';
+$datax['pay_mode']  =  'wallet';
+$datax['pay_vendor']  =  'site';
+$datax['is_parsed']  =  true;
 $joinArray = $datax;
 }else{
 $joinArray = $request['data'];
@@ -207,8 +209,9 @@ exit();
 }
 
 if($action=='submitPayment'){
-$res = $payClass->initiateTransaction($request);
 
+
+$res = $payClass->initiateTransaction($request);
 header('content-type: application/json');
 echo json_encode($res);
 exit();	
@@ -276,7 +279,13 @@ echo json_encode($res);
 exit();
 }
 
+if($action == 'verifyWalletPay'){
+$res = $payClass->verifyWalletPayment($request);
 
+header('content-type: application/json');
+echo json_encode($res);
+exit();
+}
 
 if($action=='nullifyTransaction'){
 $dbConn = new dbConn();

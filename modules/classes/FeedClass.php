@@ -116,7 +116,70 @@ return $rw;
 
 
 
+public function getShared($fid){
 
+$dbConn = new DbConn();
+$genClass = new GeneralClass();
+$articleClass = new ArticlesClass();
+$qaClass = new QaClass();
+$usr = $genClass->getUser();
+$thisuser = $usr['email'];
+
+$sqlxi = "SELECT * FROM all_shares WHERE id = ?";
+$gsh = $dbConn->getRow($sqlxi,["$fid"]);
+if($gsh['code'] ===200 && $gsh['data'] !== false){
+$rda = $gsh['data'];
+$usx = $genClass->getUserFromEmail($rda['user']);
+$sharer_name = $usx['firstname'].' '.$usx['surname'];
+$sharer_url = 'profile/'.$usx['username'];
+$share_date = $rda['sdate'];
+if($rda['content_type'] === 'article'){
+$sqa = "SELECT * FROM articles  WHERE id = ?";
+$aid = $rda['content_id'];
+$qt = $dbConn->getRow($sqa,["$aid"]);
+$rd = $qt['data'];
+$rw = $articleClass->getArticleById($rd['id']);
+if($rw !==false){
+$mda = 'is_shared_'.$rd['mode'];
+$rw[$mda] = true;
+//$rw['is_article'] = true;
+}
+}elseif($rda['content_type'] === 'topic'){
+$sqa = "SELECT * FROM questions  WHERE id = ?";
+$aid = $rda['content_id'];
+$qt = $dbConn->getRow($sqa,["$aid"]);
+$rd = $qt['data'];
+$rw = $qaClass->getQuestion($rd['id']);
+if($rw !==false){
+$rw['is_shared_topic'] = true;
+}
+}elseif($rda['content_type'] === 'answer'){
+$sqa = "SELECT * FROM comments  WHERE id = ?";
+$aid = $rda['content_id'];
+$qt = $dbConn->getRow($sqa,["$aid"]);
+$rd = $qt['data'];
+$rw = $qaClass->getAnswer($rd['id']);
+if($rw !==false){
+$rw['is_shared_answer'] = true;
+}
+}else{
+$rw = false;
+}
+
+$rw['sharer_name'] = $sharer_name;
+$rw['sharer_url'] = $sharer_url;
+$rw['is_shared'] = true;
+	
+}else{
+$rw = [];
+}
+
+
+
+
+return $rw;
+
+}//getShared
 
 
 }//FeedClass

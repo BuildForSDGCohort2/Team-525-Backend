@@ -7,7 +7,7 @@ $dbConn = new dbConn();
 $genClass = new GeneralClass();
 $usr = $genClass->getUser();
 $thisuser = $usr['email'];
-
+$qaClass = new QaClass();
 if(isset($_SESSION['senseiUser'])){
 $utype = 'user';
 }elseif (isset($_SESSION['senseiMentor'])) {
@@ -121,6 +121,9 @@ $rw['content'] = $rw['description'] = stripslashes(html_entity_decode($rw['conte
 $rw['total_sales'] = (int)$rw['total_sales'];
 $rw['total_saves'] = (int)$rw['total_saves'];
 $rw['total_shares'] = (int)$rw['total_shares'];
+$rw['share_page'] = 'article';
+$rw['description'] = strip_tags(stripslashes(html_entity_decode($rw['content'])));
+$rw['total_shares'] = $qaClass->getContentShares($rw['aid']);
 $rw['total_comments'] = (int)$rw['total_comments'];
 $rw['total_likes'] = (int)$rw['total_likes'];
 $rw['total_ratings'] = (int)$rw['total_ratings'];
@@ -148,6 +151,22 @@ return $arr;
 
 }//getArticles
 
+public function getArticleById($aid){
+$dbConn = new dbConn();
+$genClass = new GeneralClass();
+$qaClass = new QaClass();
+$rsp = $dbConn->getRow("SELECT * FROM articles WHERE id = ? ",["$aid"]);
+$rws = $rsp['data'];
+$sr = $genClass->getUserFromEmail($rws['mentor_id']);
+$rws['share_page'] = 'article';
+$rws['author_url'] = 'profile/'.$sr['username'];
+$rws['author_name'] = $sr['firstname'].' '.$sr['surname'];
+$rws['author_avatar'] = $rws['avatar'] = $sr['avatar'];
+$rws['description'] = strip_tags(stripslashes(html_entity_decode($rws['content'])));
+$rws['total_shares'] = $qaClass->getContentShares($rws['id']);
+return $rws;
+}//getArticleById
+
 
 public function hasBought($aid){
 $dbConn = new dbConn();
@@ -172,6 +191,7 @@ return $rets;
 public function getHomeArticle(){
 $dbConn = new dbConn();
 $genClass = new GeneralClass();
+$qaClass = new QaClass();
 $tcr = $dbConn->getRows("SELECT  a.title, a.mode, a.create_date, a.url, a.content, u.firstname, u.surname, u.username,u.avatar
     FROM  articles a 
 JOIN users u ON a.mentor_id = u.email
@@ -180,9 +200,12 @@ $rcr  =  $tcr['data'];
 #
 $arrr = array();
 foreach ($rcr as $kx => $rxr) {
-$rxr['comment'] = stripslashes(html_entity_decode($rxr['content']));
+$rxr['content'] = stripslashes(html_entity_decode($rxr['content']));
 $rxr['author_url'] = 'profile/'.$rxr['username'];
 $rxr['author_name'] = $rxr['firstname'].' '.$rxr['surname'];
+$rxr['total_shares'] = $qaClass->getContentShares($rxr['aid']);
+$rxr['share_page'] = 'article';
+$rxr['description'] = strip_tags(stripslashes(html_entity_decode($rxr['content'])));
 $arrr[] = $rxr; 
 }//foreach
 
@@ -192,19 +215,19 @@ return $arrr;
 }//getHomeArticles
 
 public function getPageArticles($offset=false,$limit=false){
-
+$qaClass = new QaClass();
 $dbConn = new dbConn();
 $genClass = new GeneralClass();
 $lim = (isset($limit) && $limit !== false) ? $limit : 12; 
 
 $tcr = (isset($offset) && $offset !== false) ? 
- $dbConn->getRows("SELECT  a.title, a.mode, a.create_date, a.url, a.content, u.firstname, u.surname, u.username,u.avatar
+ $dbConn->getRows("SELECT  a.title, a.id AS aid, a.mode, a.create_date, a.url, a.content, u.firstname, u.surname, u.username,u.avatar
     FROM  articles a 
 JOIN users u ON a.mentor_id = u.email
 ORDER BY a.id DESC LIMIT ? OFFSET ?",["$lim","$offset"])
  :
 
- $dbConn->getRows("SELECT  a.title, a.mode, a.create_date, a.url, a.content, u.firstname, u.surname, u.username,u.avatar
+ $dbConn->getRows("SELECT  a.title, a.id AS aid, a.mode, a.create_date, a.url, a.content, u.firstname, u.surname, u.username,u.avatar
     FROM  articles a 
 JOIN users u ON a.mentor_id = u.email
 ORDER BY a.id DESC LIMIT ?",["$lim"]);
@@ -215,6 +238,9 @@ foreach ($rcr as $kx => $rxr) {
 $rxr['comment'] = stripslashes(html_entity_decode($rxr['content']));
 $rxr['author_url'] = 'profile/'.$rxr['username'];
 $rxr['author_name'] = $rxr['firstname'].' '.$rxr['surname'];
+$rxr['share_page'] = 'article';
+$rxr['description'] = strip_tags(stripslashes(html_entity_decode($rxr['content'])));
+$rxr['total_shares'] = $qaClass->getContentShares($rxr['aid']);
 $arrr[] = $rxr; 
 }//foreach
 
@@ -224,7 +250,7 @@ return $arrr;
 }//getPageArticls
 
 public function getThisArticle($url){
-
+$qaClass = new QaClass();
 $dbConn = new dbConn();
 $genClass = new GeneralClass();
 $usr = $genClass->getUser();
@@ -267,8 +293,10 @@ if($rw !== false){
 $rw['content'] = $rw['description'] = stripslashes(html_entity_decode($rw['content']));
 $rw['total_sales'] = (int)$rw['total_sales'];
 $rw['total_saves'] = (int)$rw['total_saves'];
-$rw['total_shares'] = (int)$rw['total_shares'];
+$rw['total_shares'] = $qaClass->getContentShares($rw['aid']);
 $rw['total_comments'] = (int)$rw['total_comments'];
+$rw['share_page'] = 'article';
+$rw['description'] = strip_tags(stripslashes(html_entity_decode($rw['content'])));
 $rw['total_likes'] = (int)$rw['total_likes'];
 $rw['total_ratings'] = (int)$rw['total_ratings'];
 $rw['author_bio'] = stripslashes(html_entity_decode($rw['bio'])) ;
@@ -315,7 +343,7 @@ $sfc = " ( SELECT Count(*) FROM article_files WHERE article_id = ? )
 $tcr = $dbConn->getRows("SELECT  a.title, a.url, a.content, u.firstname, u.surname, u.username,u.avatar
     FROM  articles a 
 JOIN users u ON a.mentor_id = u.email
-WHERE a.mode = ? order by rand() LIMIT ? ",["$rw[mode]","5"]);
+WHERE a.mode = ? AND a.id <> ? order by rand() LIMIT ? ", ["$rw[mode]","$rw[id]","5"]);
 $rcr  =  $tcr['data'];
 #
 $arrr = array();

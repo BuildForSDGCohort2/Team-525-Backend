@@ -43,6 +43,9 @@ $ursu = ($rw['user_type'] == 'mentor') ? 'mentor':'user';
 $rw['author_name'] = $rw['firstname'].' '.$rw['surname'];
 $rw['author_url'] = 'profile/'.$rw['username'];
 $rw['is_question'] = true;
+$rw['description'] = $rw['title'];
+$rw['share_page'] = 'topic';
+$rw['total_shares'] = $this->getContentShares($qId);
 $rw['follows'] = $this->getQuestionFollows($qId);
 $rw['answer_list'] = array();
 $rw['fn_name'] = 'getQuestion';
@@ -66,6 +69,18 @@ $fols = count($qt['data']);
 }
 return $fols;
 }//getQuestionFollows
+
+public function getContentShares($cId){
+$dbConn = new DbConn();
+$sql = 'SELECT id FROM all_shares WHERE content_id = ? ';
+$qt = $dbConn->getRows($sql,["$cId"]);
+if($qt['code']==200 && $qt['data']!==false){
+$fols = count($qt['data']);
+}    else{
+    $fols = 0;
+}
+return $fols;
+}//getContentShares
 
 
 public function getAnswer($qId,$author=false,$deptId=false){
@@ -106,6 +121,7 @@ $qt = $dbConn->getRow($sql,$cols);
 if($qt['code'] ==200 && $qt['data'] !==false){
 $rw = $qt['data'];
 $rw['comment'] = stripslashes(html_entity_decode($rw['comment']));
+$rw['description'] = strip_tags($rw['comment']);
 $ursu = ($rw['user_type'] == 'mentor') ? 'mentor':'user';
 $rw['author_name'] = $rw['firstname'].' '.$rw['surname'];
 $rw['author_url'] = 'profile/'.$rw['username'];
@@ -132,6 +148,7 @@ $rw['comment_list'] = array();
 $rw['is_answer'] = true;
 $rw['is_not_answer'] = false;
 $rw['fn_name'] = 'getAnswer';
+$rw['share_page'] = 'answer';
 $rw['department_dir'] = 'feed/department/'.$rw['department_url'];
 }else{
 $rw = false;
@@ -169,7 +186,7 @@ $commenter_surname = $comment['com_surname'];
 */
 
 $sql =  "SELECT pc.comment AS parent_comment, pc.create_date AS parent_create_date, qpc.url AS parent_url, up.username AS parent_username, up.email AS parent_email,  up.surname AS parent_surname, 
-up.firstname AS parent_firstname, up.avatar AS parent_avatar, q.title, q.url, q.department_id, u.avatar, u.firstname, u.surname, $upmc, $dwnv, c.answer_id AS parent_answer_id, u.email, u.email AS com_email, u.firstname, u.firstname AS com_firstname, u.surname, u.surname AS com_surname, u.avatar, u.user_type AS com_user_type, u.user_type, u.username, u.username AS com_username, c.* 
+up.firstname AS parent_firstname, up.avatar AS parent_avatar, q.title, q.url, q.department_id, u.avatar, u.firstname, u.surname, $upmc, $dwnv, c.answer_id AS parent_answer_id, u.email, u.email AS com_email, u.firstname, u.firstname AS com_firstname, u.surname, u.surname AS com_surname, u.bio, u.avatar, u.user_type AS com_user_type, u.user_type, u.username, u.username AS com_username, c.* 
      FROM comments c
 JOIN questions q ON q.id = c.question_id
 JOIN comments pc ON pc.id = c.answer_id
@@ -194,6 +211,7 @@ $rw['comment_id'] = (isset($rw['id']) && !empty($rw['id'])) ? $rw['id']:$qId;
 $rw['comment_list'] = array();
 $rw['is_comment'] = true;
 $rw['fn_name'] = 'getComment';
+$rw['share_page'] = 'topic';
 }else{
 $rw = false;
 }
@@ -259,7 +277,7 @@ $rwi['create_date'] = $rtu['create_date'];
 $rwi['url'] = $rtu['url'];
 $rwi['question_author'] = $rtu['question_author'];
 $rwi['title'] = $rtu['title'];
-
+$rwi['total_shares'] = $this->getContentShares($rtu['question_id']);
 }else{
 $rwi = false;
 }
@@ -339,7 +357,7 @@ $qsid  =  $rw['id'];
 $qt2 = $dbConn->getRows("SELECT cx.*, cx.id AS answer_id,  cx.id AS parent_answer_id,
  SUM(case when v.downvote = 1 then 1 else 0 end) as downvote,
   SUM(case when v.upvote = 1 then 1 else 0 end) as upvote 
-, u.firstname, u.surname, u.username, u.avatar FROM comments  cx 
+, u.firstname, u.surname, u.username, u.avatar, u.bio FROM comments  cx 
 LEFT JOIN  users u ON   u.id  = cx.author_id
 LEFT JOIN  votes v ON   cx.id  = v.answer_id
 WHERE cx.question_id = ? AND cx.answer_id = 0
@@ -387,26 +405,28 @@ $rw2['comment'] = '';
 }
 
 $thisId  =  @$rw2['id'];
-$qt3 = $dbConn->getRows("SELECT c.id, c.question_id, c.comment, c.pid, c.answer_id, c.answer_id AS parent_answer_id, c.author_id, c.create_date, u.firstname, u.surname, u.username, u.avatar FROM comments  c 
-JOIN  users u ON   u.id  = c.author_id
+$qt3 = $dbConn->getRows("SELECT c.id, c.answer_id FROM comments c
 WHERE c.answer_id = ?  order  by  c.id  desc",["$thisId"]);
+
+
 $rww  =  $qt3["data"];
 $comTot = count($rww);
 $ar3  =  array();
 if($comTot > 0){
-//do{
-foreach ($rww as $key => $rw3) {
-$rw3['comment']   = stripslashes( html_entity_decode($rw3['comment'])); 
-$ar3[]  =  $rw3;
+foreach ($rww as $key => $rr) {
+$cidd = $rr['id'];
+$rw3 = $this->getComment($cidd,$author=false);
+$ar3[] = $rw3;
 }//foreach
 }
 $rw2['com_num'] = $comTot;
-$rw2['this_comms'] = $rw2['comment_list'] = $ar3;
+$rw2['comment_list'] = $ar3;
+
+
 $arr2[] = $rw2;
 }//foreach
 
 /**/
-
 
 return $arr2;
 }//getTopic
@@ -1049,15 +1069,7 @@ $q4 = $dbConn->executeSql("UPDATE questions SET updated = ? WHERE id = ?",["$dat
 ///
 $r =  array();
 if($q3['code'] == 200){
-$sdx = $genClass->sqlPart($genClass->users_cols,'u');
-$q5 = $dbConn->getRow(
-  "SELECT c.*, q.title, q.url, $sdx FROM comments  c 
-JOIN  users u ON   u.id  = c.author_id
-JOIN  questions q ON   q.id  = c.question_id
-WHERE c.id = ?",["$uidx"]);
-$rwx  =  $q5['data'];
-$rwx['comment'] = stripslashes(html_entity_decode($rwx['comment']));
-$r['item']   = $rwx;
+$r['item']   =  $this->getComment($uidx,$author=false);
 $r['mess']   = 'Comment Added';
 
 $r['status']   = '1';

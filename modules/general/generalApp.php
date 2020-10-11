@@ -21,6 +21,7 @@ $accountClass = new AccountClass;
 $feedClass = new FeedClass;
 $payClass = new PaymentClass;
 $dashClass = new DashClass;
+$dbConn = new DbConn;
 $notifyClass = new NotificationClass;
 #
 $postdata = file_get_contents("php://input");
@@ -39,6 +40,202 @@ $request = array('action'=>false);
 ##
 if(isset($_REQUEST['data'])){
 $formdata = json_decode($_REQUEST['data'],true);
+}
+
+
+
+if($request['action']  ==   'gettransactions'){
+$usr = $genClass->getUser();
+$thisuser = $usr['email'];
+$qt = $dbConn->getRows("SELECT * FROM transactions WHERE user = ? order  by   id  desc",["$thisuser"]);
+if($qt['code'] == 200 && count($qt['data']) > 0){
+$arr  =  $qt['data'];
+}else{
+$arr = array();
+}
+header('content-type: application/json');
+echo '{"transactions":'.json_encode($arr).'}';
+exit();
+}
+
+
+if($request['action']  ==   'gettransactions'){
+$usr = $genClass->getUser();
+$thisuser = $usr['email'];
+$qt = $dbConn->getRows("SELECT * FROM transactions WHERE user = ? order  by   id  desc",["$thisuser"]);
+if($qt['code'] == 200 && count($qt['data']) > 0){
+$arr  =  $qt['data'];
+}else{
+$arr = array();
+}
+header('content-type: application/json');
+echo '{"transactions":'.json_encode($arr).'}';
+exit();
+}
+
+
+
+if($request['action']  ==   'get_payouts'){
+$usr = $genClass->getUser();
+$thisuser = $usr['email'];
+$qt = $dbConn->getRows("SELECT * FROM payouts WHERE user = ? ORDER BY id DESC",["$thisuser"]);
+if($qt['code'] == 200 && is_array($qt['data'])){
+$rw = $qt['data'];
+}else{
+$rw = [];
+}
+header('content-type: application/json');
+echo '{"payouts":'.json_encode($rw).'}';
+exit();
+}
+
+
+
+if($action =='setNotification'){
+
+$mode = $request['setmode'];
+$data = $request['data'];
+$tar = $request['data'];
+$sq1 = $sq2 = $status = '';
+if($mode == 'unread'){
+$status = 0; $dur = 0;
+}elseif($mode == 'read'){
+$status = 1; $dur = 0;
+}elseif($mode == 'trash'){
+$status = -1; $dur = 0;
+}elseif($mode == 'delete'){
+$dur = 1;
+}
+
+
+
+if( $dur == 0){
+$sql = "UPDATE notifications SET status = ? WHERE id IN (?)";
+foreach ($tar as $key => $ids) {
+$q1 = $dbConn->executeSql($sql,["$status","$ids"]);
+}
+
+}elseif( $mode == 'delete'){
+$tir = "'".implode("','",$request['data'])."'";;
+
+$sql = "DELETE FROM notifications WHERE id IN (".$tir.") ";
+$q1 = $dbConn->executeSql($sql,[]);
+}
+
+//
+if($q1['code'] == 200){
+$state = '1';
+$mess = 'Done!';
+}else{
+$state = '0';
+$mess = 'Not Done!';  
+}
+
+header('content-type: application/json');
+echo '
+{"state":'.json_encode($state).',
+"mess":'.json_encode($mess).'
+}';
+exit();
+}
+
+
+if($request['action']  ==   'list_friend_suggest'){
+$socialClass = new SocialClass();
+$usr = $genClass->getUser();
+$thisuser = $usr['email'];
+$idps  =  $socialClass->getUserDepartments($thisuser);
+$arst = array();
+if(count($idps) > 0){
+foreach ($idps as $ky => $rwi) { 
+  $arst[] = $rwi['department_id'];
+}
+$mydepts = implode(" , ", $arst);
+}else{
+$mydepts = "";  
+}
+
+$fll = $socialClass->usersFriendsArray($thisuser);
+$friends = "'".implode("','", $fll)."'";
+
+$sqax = "SELECT DISTINCT(f.user) AS other_email, u.firstname, u.surname, u.avatar, u.bio, u.username FROM followed_departments f 
+JOIN users u ON f.user = u.email
+WHERE f.department_id IN (".$mydepts.") AND f.user NOT IN (".$friends.")";
+$tux = $dbConn->getRows($sqax,[]);
+
+$response = array();
+if($tux['code'] ==200 && $tux['data'] !==false){
+$rws = $tux['data'];
+foreach ($rws as $key => $rw) {
+$rw['name'] = $rw['firstname'].' '.$rw['surname'] ;
+$rw['bio'] = stripslashes(html_entity_decode($rw['bio'])) ;
+$rw['is_followed'] = $socialClass->isUserFollowed($rw['other_email'],$thisuser);
+$response[] = $rw;
+}
+}//code == 200
+
+
+header('content-type: application/json');
+echo json_encode($response);
+exit();
+}
+
+
+if($request['action']  ==   'get_referral'){
+$user = $genClass->getUser();
+$me = $user['email'];
+
+$spr = "SELECT  r.*, u.surname AS ref_surname, u.firstname AS ref_firstname, ur.surname AS r_surname, ur.firstname AS r_firstname 
+FROM referrals r
+JOIN users u ON r.referee = u.email
+JOIN users ur ON r.referred = ur.email
+ WHERE r.referee = ?
+";
+$pr = $dbConn->getRows($spr,["$me"]);
+$rr  =  $pr['data'];
+$arr1  =  array();
+//
+foreach ($rr as $key => $rts) {
+$arr1[] = $rts;
+}
+//
+$px = "SELECT count(r.id) AS powa_ref, u.surname, u.firstname FROM referrals r
+JOIN users u ON r.referee = u.email
+ WHERE r.ref_settled = ?
+GROUP BY r.referee
+ORDER BY count(r.id) DESC LIMIT ?
+";
+$pxr = $dbConn->getRows($px,["1","10"]);
+$rrx  =  $pxr['data'];
+$atr  =  array();
+//
+foreach ($rrx as $key => $rtsi) {
+$atr[] = $rtsi;
+}
+//
+$spr2 = "SELECT count(id) AS total_referred,
+ SUM(case when ref_settled = 1 then `point` else 0 end) as approved_earn,
+ SUM(`point_value`*`point`) as total_earn, 
+ SUM(case when ref_settled = 1 AND redeemed = 0 then `point` else 0 end) as approved_not_redeemed, 
+ SUM(case when ref_settled = 0 then `point` else 0 end) as not_approved
+    FROM referrals WHERE referee = ?";
+$pr2 = $dbConn->getRows($spr2,["$me"]);
+$rwt = $pr2['data'][0]; 
+//
+$arx = array();
+$arx['total_earn'] = (!empty($rwt['total_earn'])) ? $rwt['total_earn'] : 0;
+$arx['ref_list'] = $arr1;
+$arx['approved_earn'] = (!empty($rwt['approved_earn'])) ? $rwt['approved_earn'] : 0;
+$arx['approved_not_redeemed'] = (!empty($rwt['approved_not_redeemed'])) ? $rwt['approved_not_redeemed'] : 0;
+$arx['not_approved'] = (!empty($rwt['not_approved'])) ? $rwt['not_approved'] : 0;
+$arx['total_referred'] = $rwt['total_referred'];
+$arx['leaders'] = $atr;
+//
+$rsp =  '
+{"referral":'.json_encode($arx).'}';
+header('content-type: application/json');
+echo $rsp;
+exit();
 }
 
 
@@ -96,6 +293,25 @@ exit();
 }
 
 
+
+
+if($request['action']  ==   'get_transactions'){
+$dbConn = new DbConn();
+$usr = $genClass->getUser();
+$user = $usr['email'];
+$sql = " SELECT * FROM transactions WHERE user = ?";
+$rs = $dbConn->getRows($sql,["$user"]);
+if($rs['code'] == 200){
+$rw = $rs['data'];
+}else{
+$rw = false;
+}
+
+
+header('content-type: application/json');
+echo '{"transactions":'.json_encode($rw).'}';
+exit();
+}
 
 
 if($request['action']  ==   'checkPublicUser'){
@@ -664,6 +880,49 @@ exit();
 
 
 
+if($request['action']  ==   'saveShare'){
+$usr = $genClass->getUser();
+$user = $usr['email'];
+$load = $chk  = $ts = array();
+$load['content_id'] = $chk['content_id'] = $request['id'];
+$load['content_type']  = $request['content_type'];
+$load['mode'] = $chk['mode'] = $request['mode'];
+$load['user'] = $chk['user'] = $user;
+$load['sdate'] = $now = time();
+$load['status']  = 0;
+#
+$checkIf = $dbConn->isExists($chk, 'all_shares');
+$isShared = $checkIf['response'];
+if(!$isShared){
+$doInsert = $dbConn->insertDb($load,'all_shares');
+if($doInsert['code'] == 200){
+$feedload = array('is_share'=>1, 'did'=>0, 'cid'=>$doInsert['lastInsertId'], 'author'=>$user, 'create_date'=>$now);
+$feed = $notifyClass->feedNotification($feedload);
+
+
+$mess = ' <i class="fa status-active fa-check"></i> Shared Successfully' .$doInsert['lastInsertId'];
+$status = '1';
+}else{
+$mess = '<i class="fa fa-exclamation-triangle status-cancelled"></i> Share failed';
+$status = '0';  
+}
+}else{
+$mess = '<i class="fa fa-exclamation-triangle status-cancelled"></i>  Already Shared';
+$status = '0';    
+}
+
+
+
+
+header('content-type: application/json');
+echo '{"mess":'.json_encode($mess).',
+"status":'.json_encode($status).',
+"state":'.json_encode($status).'
+}';
+exit();
+}
+
+
 
 if($action=='reset_key'){
 $dbConn = new DbConn();
@@ -810,6 +1069,7 @@ $squser = "SELECT f.* FROM feed f WHERE
   (f.is_question = 1  AND f.author = ? )  OR    
   (f.is_comment = 1  AND f.author = ? )  OR   
   (f.is_answer = 1  AND f.author = ? ) OR 
+   (f.is_share = 1  AND f.author = ? ) OR 
    (f.is_blog = 1  AND f.author = ? ) OR 
    (f.is_article = 1  AND f.author = ? )   
     ORDER BY  f.id desc  LIMIT ? OFFSET ?";
@@ -825,7 +1085,7 @@ $sqquest = "SELECT f.* FROM feed f WHERE
     ORDER BY  f.id desc  LIMIT ? OFFSET ?";
 
 if($isLoggedUser ===true){
-$frr = $dbConn->getRows($squser,["$thisuser","$thisuser","$thisuser","$thisuser","$thisuser","$limit","$offset"]);
+$frr = $dbConn->getRows($squser,["$thisuser","$thisuser","$thisuser","$thisuser","$thisuser","$thisuser","$limit","$offset"]);
 $rws = $frr['data'];
 $fnum  =  count($rws);
 //if($fnum === 0){
@@ -869,6 +1129,11 @@ if($rtq !== false){
 $arr[] = $rtq;
 }
 
+}elseif ($rw['is_share'] == 1) {
+$rtq =  $feedClass->getShared($rw['cid']);
+if($rtq !== false){
+$arr[] = $rtq;
+}
 }elseif ($rw['is_comment'] == 1) {
 $rtq =  ($isLoggedUser===true) ? $qaClass->getComment($rw['cid'],false) : $qaClass->getComment($rw['cid'],false);
 if($rtq !== false){
@@ -1270,6 +1535,203 @@ header('content-type: application/json');
 echo '{"faq":'.$ds.'}';
 
 exit();
+}
+
+
+
+
+if($action == 'save_artilce_comment'){
+$usr = $genClass->getUser();
+$thisuser = $usr['email'];
+$id = $request['aid'];
+$comment = htmlentities(addslashes($genClass->purifyContent($request['newComment'])));
+$now = time();
+$aload = array(
+'article_id'=>$id, 
+'user'=>$thisuser, 
+'cdate'=>$now, 
+'comment'=>$comment
+);
+$q3 = $dbConn->insertDb($aload,'article_comments');
+if($q3['code'] === 200){
+$uids = $q3['lastInsertId'];
+$status = '1'; $mess = 'comment Saved !';
+$rc = $dbConn->getRow(" SELECT c.*, u.firstname, u.surname, u.username, u.user_type, u.avatar FROM article_comments c 
+JOIN users u ON c.user = u.email
+WHERE c.article_id = ? AND c.id = ?",["$id","$uids"]);
+$rcw = $rc['data'];
+$rcw['comment'] = stripslashes(html_entity_decode($rcw['comment']));
+$lastcomm = $rcw;
+}else{
+$status = '0'; $mess = 'comment Not Saved !'; 
+$lastcomm  = array(); 
+}
+
+header('content-type: application/json');
+echo '{
+"status":'.json_encode($status).',
+"mess":'.json_encode($mess).',
+"last_comment":'.json_encode($lastcomm).'
+}';
+exit();
+
+}
+
+
+
+
+
+if($action == 'getRefData'){
+$usr = $genClass->getUser();
+$me = $usr['email'];
+$sql = "SELECT * FROM referrals WHERE ref_settled = ? AND redeemed = ? AND referee = ?";
+$rs = array();
+$pr = $dbConn->getRows($sql,["1","0","$me"]);
+
+if($pr['code']==200 && $pr['data']!==false){
+$rr  =  $pr['data'];
+$arr1  =  array();
+$init_sum = $init_point =0;
+foreach ($rr as $key => $rts) {
+$this_gain = $rts['point']*$rts['point_value'];
+$init_sum = $init_sum+$this_gain;
+$this_point = $rts['point'];
+$init_point = $init_point+$this_point;
+}
+$final_sum = $init_sum;
+$final_point = $init_point;
+$rs['total_earn'] = $final_sum;
+$rs['total_points'] = $final_point;
+}else{
+$rs['total_earn'] = 0;
+$rs['total_points'] = 0;  
+}
+
+
+header('content-type: application/json');
+echo json_encode($rs);
+exit();
+
+}
+
+
+if($action == 'convert_ref_point'){
+$usr = $genClass->getUser();
+$me = $usr['email'];
+$sql = "SELECT * FROM referrals WHERE ref_settled = ? AND redeemed = ? AND referee = ?";
+$rs = array();
+$pr = $dbConn->getRows($sql,["1","0","$me"]);
+if($pr['code']==200 && $pr['data']!==false){
+$rr  =  $pr['data'];
+$arr1  =  array();
+$init_sum = 0;
+foreach ($rr as $key => $rts) {
+$this_gain = $rts['point']*$rts['point_value'];
+$init_sum = $init_sum+$this_gain;
+}
+$final_sum = $init_sum;
+
+$sxc = "UPDATE referrals SET redeemed = ? WHERE ref_settled = ? AND redeemed = ? AND referee = ?";
+$pas = $dbConn->getRows($sxc,["1","1","0","$me"]);
+
+if($pas['code']==200){
+
+if($payClass->creditWallet($me, $final_sum)){
+$rs['mess'] = $rs['message'] = 'Awarded Referral Points Successfully';
+$rs['status'] = '1';
+$rs['class']='good';
+$rs['wallet']= $payClass->getWallet($me);
+}else{
+$rs['mess'] = $rs['message'] = 'Unable to  award Referral Points';
+$rs['status'] = '0';
+$rs['class']='error'; 
+}
+}else{
+$rs['mess'] = $rs['message'] = 'Unable to save referral earnings award. Please try again.';
+$rs['status'] = '0';
+$rs['class']='error';   
+}
+}else{
+$rs['mess'] = $rs['message'] = 'Unable to calculate points. Please try again.';
+$rs['status'] = '0';
+$rs['class']='error';
+}
+
+
+header('content-type: application/json');
+echo json_encode($rs);
+exit();
+
+}
+
+
+
+
+
+
+if($request['action']  ==   'withdraw_earn'){
+$usr = $genClass->getUser();
+$user = $usr['email'];
+$data = $request['data'];
+$amount = $data['amount'];
+$rdate = time();
+//
+$bank_name = $data['bank_name'];
+$account_number = $data['account_number'];
+$account_name = $data['account_name'];
+$account_type = $data['account_type'];
+//
+$checker = $dbConn->getRows("SELECT * FROM wallet  WHERE user = ?",["$user"]); //
+$rwe = $checker['data'];
+$isChecked = count($rwe);
+if($isChecked > 0){
+if($rwe[0]['withdrawable'] >= $amount){
+$deber = $dbConn->executeSql("UPDATE wallet SET withdrawable = withdrawable-? WHERE user = ?",["$amount","$user"]); 
+$ldr = array(
+  'user'=>$user,
+  'bank_name'=>$bank_name,
+  'account_name'=>$account_name,
+  'account_number'=>$account_number,
+  'account_type'=>$account_type,
+  'amount'=>$amount,
+  'wdate'=>$rdate
+);
+$sdd = $dbConn->insertDb($ldr,'payouts');  
+if($deber['code'] == 200 && $sdd['code']==200){
+$status = '1'; 
+$class = 'good'; 
+$message = 'Withdrawal request Sent Successfully';
+}else{
+$status = '0'; 
+$class = 'error'; 
+$message = 'Withdrawal request Cannot be sent at this time. Try again later.';  
+}
+
+} else{
+ $status = '0'; 
+ $class = 'error'; 
+ $message = 'Insufficient Withdrawable Wallet balance.';   
+}
+
+
+}else{
+ $status = '0'; 
+ $message = 'User not found.'; 
+ $class = 'error';  
+}
+
+
+header('content-type: application/json');
+echo '{
+  "status":'.json_encode($status).', 
+  "class":'.json_encode($class).', 
+  "message":'.json_encode($message).'
+}';
+exit();
+
+
+
+
 }
 
 

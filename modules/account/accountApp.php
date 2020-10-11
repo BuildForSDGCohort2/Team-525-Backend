@@ -21,6 +21,7 @@ $accountClass = new AccountClass;
 $payClass = new PaymentClass;
 $socialClass = new SocialClass;
 $dashClass = new DashClass;
+$dbConn = new DbConn;
 #
 $postdata = file_get_contents("php://input");
 $request = json_decode($postdata,true);
@@ -358,6 +359,92 @@ $rsp = $articlesClass->getArticles($type,$offset,$limit);
         
         } 
 
+
+
+if (isset($_REQUEST['action']) && $_REQUEST['action'] == 'updateProfilePic') {
+$usr = $genClass->getUser();
+$old_avatar = $genClass->getbaseUrl().$usr['avatar'];
+$old_picture = $genClass->getbaseUrl().$usr['picture'];
+
+$thisuser = $usr['email'];
+$file = $_FILES['file'];
+$pass =  $genClass->crand(10);
+$code = mt_rand() . mt_rand() . mt_rand();
+$valid_formats = array(
+  "jpg", "JPG", "JPEG",  "PJPEG",  "png", "gif","jpeg","pjpeg");
+$pdate = time();
+$rand = mt_rand().mt_rand();
+//
+if(!empty($_FILES['file'])){
+$banner_file = $file['name'];
+$banner_size = $file['size'];
+$flt = pathinfo($banner_file);
+$banner_tmp = $file['tmp_name'];
+$banner_name = $flt['filename'];
+$ext = $flt['extension'];
+$banner_url = "files/profile/".$pdate.'-'.$rand.'.'.$ext; //a directory inside
+$banner_actual = "../../files/profile/".$pdate.'-'.$rand.'.'.$ext;
+$banner_thumb_url = "files/profile/thumbs/".$pdate.'-'.$rand.'-thumb.'.$ext;
+$banner_thumb_actual = "../../files/profile/thumbs/".$pdate.'-'.$rand.'-thumb.'.$ext;  
+}
+//
+if( !empty($_FILES['file']) &&!in_array($ext,$valid_formats)){
+$go='no';
+$mess = '<div class="error center"><p>Invalid File ('.$ext.') Attached! Allowed formats include : '.implode(",", $valid_formats).'/p></div>' ;
+header('content-type: application/json');
+echo '{"state":'.json_encode(0).',
+"mess":'.json_encode($mess).',
+"class":'.json_encode('error').'}';
+exit();
+}
+
+else{$go= "yes";}
+
+
+
+if ($go == "yes"){
+
+if ( !empty($_FILES['file'])) {
+if(move_uploaded_file($banner_tmp, $banner_actual)){
+$res = $genClass->resizeImage($banner_actual, $banner_thumb_actual,100,150,150);
+if(file_exists($old_avatar)){
+unlink($old_avatar);    
+}
+if (file_exists($old_picture)) {
+unlink($old_picture);
+}
+
+
+};
+}else{$banner_thumb_url = $banner_actual = '';}
+
+/*
+if ( !empty($_FILES['file'])) {
+if(move_uploaded_file($banner_tmp, $banner_actual)){
+$fileUrl = $banner_url;
+}
+*/
+$sar = $dbConn->executeSql("UPDATE users SET avatar = ?, picture = ? WHERE email = ?", ["$banner_thumb_url", "$banner_url", "$thisuser"]);
+}else{$sar = array('code'=>100);}
+if($sar['code']==200){
+$mess = 'Saved Successfully'; $status = '1';  $class = 'good';
+}else{
+ $mess = 'Cannot Upload Picture'; $status = '0';  $class = 'error'; 
+}
+
+
+
+header('content-type: application/json');
+echo '{"state":'.json_encode($status).',
+"mess":'.json_encode($mess).',
+"avatar":'.json_encode($banner_thumb_url).',
+"class":'.json_encode($class).'}';
+exit();
+
+
+
+
+}
 
 
 ?>

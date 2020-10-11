@@ -62,8 +62,7 @@ $fll = $socialClass->usersFriendsArray($thisuser);
 $friends = "'".implode("','", $fll)."'";
 $squser = "SELECT f.* FROM feed f WHERE 
  (f.is_question = 1  AND f.did IN (".$mydepts.") ) OR 
-  (f.is_answer = 1  AND f.did IN (".$mydepts.") ) OR 
-  (f.is_comment = 1  AND f.did IN (".$mydepts.") ) OR   
+  (f.is_answer = 1  AND f.did IN (".$mydepts.") ) OR  
   (f.is_question = 1  AND f.author = ? )  OR   
   (f.is_answer = 1  AND f.author = ? ) 
     ORDER BY  f.id desc  LIMIT ? OFFSET ?";
@@ -72,14 +71,18 @@ $squser = "SELECT f.* FROM feed f WHERE
 $isLoggedUser = false;
 }
 
+
+
 $sqquest = "SELECT f.* FROM feed f WHERE 
  (f.is_question = 1 ) OR 
-  (f.is_answer = 1) OR 
-  (f.is_comment = 1 )  
+  (f.is_answer = 1)  
     ORDER BY  f.id desc  LIMIT ? OFFSET ?";
 
 if($isLoggedUser ===true){
 $frr = $dbConn->getRows($squser,["$thisuser","$thisuser","$limit","$offset"]);
+
+
+
 $rws = $frr['data'];
 $fnum  =  count($rws);
 /*

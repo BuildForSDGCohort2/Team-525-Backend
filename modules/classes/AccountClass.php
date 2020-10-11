@@ -437,7 +437,7 @@ $uload = array(
 	'match_key'=>$match_key
 );
 $query = $dbConn->insertDb($uload,'users');
-
+if($query['code'] ==200){
 $uid = $query['lastInsertId'];
 //
 do{
@@ -486,8 +486,10 @@ Have a wonderful experience.
 
 $name = $email;
 $messBody = $message;;
-//$senda = $emailClass->sendPlain($senderemail,$sendername,$to,$subject,$messBody,$type='blue');
+$senda = $emailClass->sendPlain($senderemail,$sendername,$to,$subject,$messBody,$type='blue');
 $genClass->redoSessionUser('user',$email,0,$uid);
+
+
 $state = '1';
 $mess = '
 <div><p> Thank You,  <br>Your registration has been received. <br>Kindly verify your registration by clicking on the verification link in the email we just sent to your email.</p>
@@ -497,6 +499,14 @@ $mess = '
 </div>
 </div>
 ';
+}else{
+$d_response = array(
+	"state"=>"0",
+	"mess"=>"Could not register user please contact admin",
+	"nextUrl"=>"/register",
+	"class"=>"error"
+);    
+}
 $nextUrl = './account';
 $d_response = array(
 	"state"=>$state,

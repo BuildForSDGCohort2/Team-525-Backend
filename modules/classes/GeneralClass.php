@@ -7,8 +7,8 @@ class GeneralClass
 {
 public static $baseUrl;
 
-public $users_cols_public = ["id","email","username","phone","firstname","surname","bio","gender","avatar","user_type","reg_time"];
-public $users_cols = ["id","email","username","phone","firstname","surname","bio","gender","avatar","user_type","reg_time"];
+public $users_cols_public = ["id","email","username","phone","firstname","surname","bio","gender","avatar","picture","user_type","reg_time"];
+public $users_cols = ["id","email","username","phone","firstname","surname","bio","gender","avatar","picture","user_type","reg_time"];
 public $valid_formats = array(
   "jpg", "JPG", "JPEG",  "PJPEG", "pdf", "xlsx", "xls",  "ppt", "pptx", "txt", "csv", "php", "ini", "html", "htacess",  
  "png", "gif", "bmp","jpeg","pjpeg","docx","doc");
@@ -471,7 +471,12 @@ return $status;
 
 
 public function getbaseUrl(){
-return self::$baseUrl;
+$server = $_SERVER['SERVER_NAME'];
+$uhost = $_SERVER['HTTP_HOST'];
+$params = explode('.', $uhost);
+$pr = (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] != 'on') ? 
+'http://':'https://';
+return $pr.$server.'/';
 }//getBaseUrl()
 
 
